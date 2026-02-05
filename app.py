@@ -45,18 +45,23 @@ h2, h3 { color: #155e75; }
 # ================== CONSTANTS ==================
 IMG_SIZE = 224
 
+IMG_SIZE = 224
+
 MODEL_CONFIG = {
     "Lung": {
-        "path": "lung_cancer_resnet50.h5",
+        "model_path": "lung_cancer_resnet50.h5",
         "classes": ["Normal", "Benign", "Malignant"],
-        "last_conv": "conv5_block3_out"
+        "last_conv": "conv5_block3_out",
+        "file_id": "1UkTbZ_QzH6XEkcU_4bkVicG2BJQPbZVM"
     },
     "Pancreas": {
-        "path": "pancreas_cancer_resnet50.h5",
+        "model_path": "pancreas_cancer_resnet50.h5",
         "classes": ["Normal", "Tumor"],
-        "last_conv": "conv5_block3_out"
+        "last_conv": "conv5_block3_out",
+        "file_id": "17W3lAsJtVD6d7SoXMgT_7vjxBSsF4P50"
     }
 }
+
 
 # ================== SESSION STATE ==================
 if "history" not in st.session_state:
