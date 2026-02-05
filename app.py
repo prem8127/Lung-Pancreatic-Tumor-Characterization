@@ -6,6 +6,8 @@ import cv2
 import os
 import matplotlib.pyplot as plt
 from datetime import datetime
+import gdown
+
 
 # ================== PAGE CONFIG ==================
 st.set_page_config(
@@ -61,6 +63,7 @@ MODEL_CONFIG = {
         "file_id": "17W3lAsJtVD6d7SoXMgT_7vjxBSsF4P50"
     }
 }
+
 def load_or_download_model(model_path, file_id):
     if not os.path.exists(model_path):
         with st.spinner("Downloading model file..."):
@@ -123,10 +126,14 @@ st.title("Lung & Pancreatic Tumor Characterization")
 st.markdown("**AI-assisted CT image analysis · Academic & research use only**")
 
 organ = st.selectbox("Select Organ", ["Lung", "Pancreas"])
-
-MODEL_PATH = MODEL_CONFIG[organ]["path"]
+MODEL_PATH = MODEL_CONFIG[organ]["model_path"]
+FILE_ID = MODEL_CONFIG[organ]["file_id"]
 CLASS_NAMES = MODEL_CONFIG[organ]["classes"]
 LAST_CONV = MODEL_CONFIG[organ]["last_conv"]
+
+model = load_or_download_model(MODEL_PATH, FILE_ID)
+
+
 
 if not os.path.exists(MODEL_PATH):
     st.error(f"Model file not found: {MODEL_PATH}")
