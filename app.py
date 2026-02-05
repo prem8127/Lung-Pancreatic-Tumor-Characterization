@@ -6,6 +6,7 @@ import cv2
 import os
 import matplotlib.pyplot as plt
 from datetime import datetime
+import gdown
 
 # ================== PAGE CONFIG ==================
 st.set_page_config(
@@ -35,10 +36,6 @@ h2, h3 { color: #155e75; }
     font-weight: 600;
     border-bottom: 2px solid #0f766e;
 }
-[data-testid="stSidebar"] {
-    background-color: #ffffff;
-    border-right: 1px solid #e5e7eb;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -49,14 +46,27 @@ MODEL_CONFIG = {
     "Lung": {
         "model_path": "lung_cancer_resnet50.h5",
         "classes": ["Normal", "Benign", "Malignant"],
-        "last_conv": "conv5_block3_out"
+        "last_conv": "conv5_block3_out",
+        "file_id": "1UkTbZ_QzH6XEkcU_4bkVicG2BJQPbZVM"
     },
     "Pancreas": {
         "model_path": "pancreas_cancer_resnet50.h5",
         "classes": ["Normal", "Tumor"],
-        "last_conv": "conv5_block3_out"
+        "last_conv": "conv5_block3_out",
+        "file_id": "17W3lAsJtVD6d7SoXMgT_7vjxBSsF4P50"
     }
 }
+
+# ================== MODEL DOWNLOAD ==================
+def load_or_download_model(model_path, file_id):
+    if not os.path.exists(model_path):
+        with st.spinner("Downloading model file..."):
+            gdown.download(
+                f"https://drive.google.com/uc?id={file_id}",
+                model_path,
+                quiet=False
+            )
+    return tf.keras.models.load_model(model_path)
 
 # ================== SESSION STATE ==================
 if "history" not in st.session_state:
@@ -64,14 +74,9 @@ if "history" not in st.session_state:
 if "gradcam" not in st.session_state:
     st.session_state.gradcam = None
 
-# ================== FUNCTIONS ==================
-@st.cache_resource
-def load_model(path):
-    return tf.keras.models.load_model(path)
-
+# ================== IMAGE FUNCTIONS ==================
 def preprocess_image(img):
-    img = img.convert("RGB")
-    img = img.resize((IMG_SIZE, IMG_SIZE))
+    img = img.convert("RGB").resize((IMG_SIZE, IMG_SIZE))
     arr = np.array(img) / 255.0
     return np.expand_dims(arr, axis=0)
 
@@ -95,16 +100,14 @@ def make_gradcam(img_array, model, last_conv):
 def overlay_gradcam(image, heatmap):
     img = np.array(image)
     heatmap = cv2.resize(heatmap, (img.shape[1], img.shape[0]))
-    heatmap = np.uint8(255 * heatmap)
-    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+    heatmap = cv2.applyColorMap(np.uint8(255 * heatmap), cv2.COLORMAP_JET)
     return cv2.addWeighted(img, 0.6, heatmap, 0.4, 0)
 
 # ================== SIDEBAR ==================
 st.sidebar.markdown("## 🧾 Patient Information")
-patient_name = st.sidebar.text_input("Patient Full Name", placeholder="e.g., Ramesh Kumar")
+patient_name = st.sidebar.text_input("Patient Name")
 age = st.sidebar.number_input("Age", 1, 120)
 gender = st.sidebar.radio("Gender", ["Male", "Female", "Other"], horizontal=True)
-st.sidebar.caption("Academic & research use only")
 
 # ================== HEADER ==================
 st.title("Lung & Pancreatic Tumor Characterization")
@@ -112,147 +115,70 @@ st.markdown("**AI-assisted CT image analysis** · Academic & research use only")
 
 organ = st.selectbox("Select Organ", ["Lung", "Pancreas"])
 
-MODEL_PATH = MODEL_CONFIG[organ]["model_path"]
-CLASS_NAMES = MODEL_CONFIG[organ]["classes"]
-LAST_CONV = MODEL_CONFIG[organ]["last_conv"]
+cfg = MODEL_CONFIG[organ]
+model = load_or_download_model(cfg["model_path"], cfg["file_id"])
 
-if not os.path.exists(MODEL_PATH):
-    st.error(f"Model not found: {MODEL_PATH}")
-    st.stop()
-
-model = load_model(MODEL_PATH)
-
-# ================== SAFE VARIABLES ==================
-final_preds = None
-result = None
-conf = None
+CLASS_NAMES = cfg["classes"]
+LAST_CONV = cfg["last_conv"]
 
 # ================== TABS ==================
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "🧪 Diagnostic Assessment",
-    "📊 Confidence Chart",
-    "🧠 Grad-CAM",
-    "📜 Case History",
-    "🧑‍⚕️ Doctor Summary",
-    "⚠ Precautions"
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "🧪 Diagnosis", "📊 Confidence", "🧠 Grad-CAM", "📜 History", "🧑‍⚕️ Report"
 ])
 
-# ================== DIAGNOSTIC ==================
+# ================== DIAGNOSIS ==================
 with tab1:
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-
-    uploaded = st.file_uploader(
-        "Upload CT Scan Image(s)",
-        type=["png", "jpg", "jpeg"],
-        accept_multiple_files=True
-    )
-
+    uploaded = st.file_uploader("Upload CT Images", type=["png","jpg","jpeg"], accept_multiple_files=True)
     if uploaded:
         preds_list = []
-
         for img_file in uploaded:
             image = Image.open(img_file)
-            img_array = preprocess_image(image)
-            preds = model.predict(img_array, verbose=0)[0]
+            arr = preprocess_image(image)
+            preds = model.predict(arr, verbose=0)[0]
             preds_list.append(preds)
 
         final_preds = np.mean(preds_list, axis=0)
-        idx = int(np.argmax(final_preds))
-        conf = final_preds[idx] * 100
+        idx = np.argmax(final_preds)
         result = CLASS_NAMES[idx]
+        conf = final_preds[idx] * 100
 
-        # ---- GRAD-CAM ----
-        heatmap = make_gradcam(img_array, model, LAST_CONV)
+        heatmap = make_gradcam(arr, model, LAST_CONV)
         st.session_state.gradcam = overlay_gradcam(image, heatmap)
 
-        st.markdown(f"""
-### Diagnostic Summary
-- **Organ:** {organ}  
-- **Finding:** **{result}**  
-- **Confidence:** **{conf:.2f}%**
-""")
-
+        st.markdown(f"**Diagnosis:** {result}  \n**Confidence:** {conf:.2f}%")
         st.session_state.history.append({
-            "Patient": patient_name if patient_name else "Not Provided",
+            "Patient": patient_name,
             "Organ": organ,
-            "Finding": result,
-            "Confidence (%)": round(conf, 2)
+            "Result": result,
+            "Confidence": round(conf,2)
         })
 
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# ================== CONFIDENCE CHART ==================
+# ================== CONFIDENCE ==================
 with tab2:
-    if final_preds is not None:
+    if uploaded:
         fig, ax = plt.subplots()
         ax.bar(CLASS_NAMES, final_preds * 100)
-        ax.set_ylabel("Confidence (%)")
-        ax.set_ylim(0, 100)
+        ax.set_ylim(0,100)
         st.pyplot(fig)
-    else:
-        st.info("Upload CT images to view confidence chart.")
 
-# ================== GRAD-CAM VIEW ==================
+# ================== GRAD-CAM ==================
 with tab3:
-    st.markdown('<div class="card">', unsafe_allow_html=True)
     if st.session_state.gradcam is not None:
-        st.subheader("Grad-CAM Visualization")
-        st.image(
-            st.session_state.gradcam,
-            caption="Highlighted regions influencing prediction",
-            use_container_width=True
-        )
-    else:
-        st.info("Run diagnostic assessment to view Grad-CAM.")
-    st.markdown('</div>', unsafe_allow_html=True)
+        st.image(st.session_state.gradcam, use_container_width=True)
 
 # ================== HISTORY ==================
 with tab4:
-    if st.session_state.history:
-        st.table(st.session_state.history)
-    else:
-        st.info("No cases recorded yet.")
+    st.table(st.session_state.history)
 
-# ================== DOCTOR SUMMARY + REPORT DOWNLOAD ==================
+# ================== REPORT ==================
 with tab5:
-    if result is not None:
+    if uploaded:
         report = f"""
-AI-Assisted Tumor Characterization Report
-----------------------------------------
-Patient Name : {patient_name if patient_name else "Not Provided"}
-Age / Gender : {age} / {gender}
-Organ        : {organ}
-Diagnosis    : {result}
-Confidence   : {conf:.2f}%
-
-Generated On : {datetime.now().strftime('%Y-%m-%d %H:%M')}
-
-⚠ This report is for academic and research purposes only.
+Patient: {patient_name}
+Age/Gender: {age}/{gender}
+Organ: {organ}
+Diagnosis: {result}
+Confidence: {conf:.2f}%
+Generated: {datetime.now()}
 """
-
-        st.markdown(f"""
-### Clinical Summary
-
-**Patient:** {patient_name if patient_name else "Not Provided"}  
-**Age / Gender:** {age} / {gender}  
-**Organ:** {organ}  
-**Diagnosis:** **{result}**  
-**Confidence:** {conf:.2f}%
-""")
-
-        st.download_button(
-            "📄 Download Report (TXT)",
-            report,
-            file_name="Tumor_Analysis_Report.txt",
-            mime="text/plain"
-        )
-    else:
-        st.info("Upload CT images to generate summary and report.")
-
-# ================== PRECAUTIONS ==================
-with tab6:
-    st.markdown("""
-• Not for real clinical diagnosis  
-• Depends on dataset and image quality  
-• For academic & research use only  
-""")
+        st.download_button("Download Report", report, "report.txt")
