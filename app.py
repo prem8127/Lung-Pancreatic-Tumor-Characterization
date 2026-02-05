@@ -61,7 +61,15 @@ MODEL_CONFIG = {
         "file_id": "17W3lAsJtVD6d7SoXMgT_7vjxBSsF4P50"
     }
 }
-
+def load_or_download_model(model_path, file_id):
+    if not os.path.exists(model_path):
+        with st.spinner("Downloading model file..."):
+            gdown.download(
+                f"https://drive.google.com/uc?id={file_id}",
+                model_path,
+                quiet=False
+            )
+    return tf.keras.models.load_model(model_path)
 
 # ================== SESSION STATE ==================
 if "history" not in st.session_state:
