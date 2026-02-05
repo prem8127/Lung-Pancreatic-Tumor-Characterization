@@ -1,0 +1,17 @@
+# Virtual environment
+.venv/
+
+# Datasets
+data/
+*.npy
+
+# Trained models
+*.h5
+
+# Cache
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
