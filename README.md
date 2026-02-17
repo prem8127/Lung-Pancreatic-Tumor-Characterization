@@ -93,8 +93,8 @@ Institution: Vignana Bharathi Institute of Technology
 
 📞 Contact: 8885667196
 
-🔗 LinkedIn: (Add your LinkedIn profile link here)
-💻 GitHub: (Add your GitHub profile link here)
+🔗 LinkedIn:www.linkedin.com/in/prem-sagar-kota-818188320
+ 
 
 🚀 How to Run
 pip install streamlit tensorflow numpy opencv-python pillow matplotlib
